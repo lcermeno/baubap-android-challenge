@@ -24,7 +24,7 @@ import javax.inject.Singleton
 object AppModule {
 
     @Qualifier
-    @Retention(AnnotationRetention.BINARY)
+    @Retention(AnnotationRetention.RUNTIME)
     annotation class ApiKey
 
     @Singleton
@@ -56,7 +56,7 @@ object AppModule {
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .addInterceptor { chain -> // <-- Añade el interceptor
+            .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val requestWithApiKey = originalRequest.newBuilder()
                     .header("x-api-key", apiKey)
