@@ -1,8 +1,8 @@
-package com.baubap.challenge
+package com.baubap.challenge.presentation.login
 
-import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,18 +11,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +29,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.baubap.challenge.domain.model.User
 import com.baubap.challenge.ui.theme.BaubapChallengeTheme
 import org.orbitmvi.orbit.compose.collectAsState
 import org.orbitmvi.orbit.compose.collectSideEffect
@@ -39,29 +38,56 @@ import org.orbitmvi.orbit.compose.collectSideEffect
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit,
-    onNavigateToHome: () -> Unit,
-    viewModel: AuthViewModel = viewModel()
+    onNavigateToHome: (User) -> Unit,
+    viewModel: LoginViewModel = hiltViewModel()
 ) {
-    var email = ""
-    var password = ""
 
-    val state by viewModel.collectAsState()
+    val uiState by viewModel.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    viewModel.collectSideEffect { sideEffect ->
-        when (sideEffect) {
+    viewModel.collectSideEffect { effect ->
+        when (val event = effect) {
             is AuthSideEffect.NavigateToHome -> {
-                onNavigateToHome()
+                onNavigateToHome(event.user)
             }
 
             is AuthSideEffect.ShowError -> {
-                // Los errores ahora se muestran permanentemente en el estado
+                snackbarHostState.showSnackbar(
+                    message = effect.message,
+                    withDismissAction = true
+                )
             }
         }
     }
 
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { paddingValues ->
+
+        LoginForm(
+            onEmailChanged = viewModel::onEmailChanged,
+            onPasswordChanged = viewModel::onPasswordChanged,
+            onLoginClick = viewModel::login,
+            onNavigateToRegister = onNavigateToRegister,
+            uiState = uiState,
+            paddingValues = paddingValues
+        )
+    }
+}
+
+@Composable
+private fun LoginForm(
+    onEmailChanged: (String) -> Unit,
+    onPasswordChanged: (String) -> Unit,
+    onNavigateToRegister: () -> Unit,
+    onLoginClick: () -> Unit,
+    uiState: AuthState,
+    paddingValues: PaddingValues
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(paddingValues)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -74,48 +100,36 @@ fun LoginScreen(
         )
 
         OutlinedTextField(
-            value = email,
-            onValueChange = {
-                email = it
-                if (state.errorMessage != null) {
-                    viewModel.clearError()
-                }
-            },
+            value = uiState.email,
+            onValueChange = onEmailChanged,
             label = { Text("Email") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            enabled = !state.isLoading
+            enabled = !uiState.isLoading
         )
 
         OutlinedTextField(
-            value = password,
-            onValueChange = {
-                password = it
-                if (state.errorMessage != null) {
-                    viewModel.clearError()
-                }
-            },
+            value = uiState.password,
+            onValueChange = onPasswordChanged,
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            enabled = !state.isLoading
+            enabled = !uiState.isLoading
         )
 
         Button(
-            onClick = {
-                viewModel.login(email, password)
-            },
+            onClick = onLoginClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            enabled = !state.isLoading && email.isNotBlank() && password.isNotBlank()
+            enabled = !uiState.isLoading && uiState.email.isNotBlank() && uiState.password.isNotBlank()
         ) {
-            if (state.isLoading) {
+            if (uiState.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp
@@ -129,7 +143,7 @@ fun LoginScreen(
 
         TextButton(
             onClick = onNavigateToRegister,
-            enabled = !state.isLoading
+            enabled = !uiState.isLoading
         ) {
             Text("¿No tienes cuenta? Registrate")
         }

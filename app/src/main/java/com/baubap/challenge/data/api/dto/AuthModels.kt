@@ -1,4 +1,4 @@
-package com.baubap.challenge
+package com.baubap.challenge.data.api.dto
 
 data class RegisterRequest(
     val email: String,
